@@ -1,0 +1,18 @@
+[
+   {
+      "time": "2023-15-10 15:09:48 UTC+03:00",
+      "place": "\u0413\u0430\u0437\u0430",
+      "weather": "\u044f\u0441\u043d\u043e",
+      "real_temperature": 25,
+      "feels_like_temparature": 25,
+      "wind_speed": 7.55
+   },
+   {
+      "time": "2023-15-10 15:09:50 UTC+03:00",
+      "place": "\u041c\u043e\u0441\u043a\u0432\u0430",
+      "weather": "\u043f\u0430\u0441\u043c\u0443\u0440\u043d\u043e",
+      "real_temperature": 10,
+      "feels_like_temparature": 10,
+      "wind_speed": 3.86
+   }
+]
