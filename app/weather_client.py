@@ -9,7 +9,7 @@ from weather_dataclass import CurrentWeather
 class WeatherClient:
     API_key : str = "7bd479633f081dc9d67691e3afa0fa36"
     API_adress : str = "http://api.openweathermap.org/data/2.5/weather"
-    directory : str = os.path.dirname(os.path.dirname(__file__)) + '\\Forecast App\\'
+    history_directory : str = os.path.dirname(os.path.dirname(__file__)) + '\\logfiles\\'
 
     def get_weather(self, place : str) -> CurrentWeather:
         if place == 'Мое местоположение':
@@ -38,7 +38,7 @@ class WeatherClient:
 
 
     def log_to_history(self, report : CurrentWeather) -> None:
-        path = self.directory + "logfile.json"
+        path = self.history_directory + "history.json"
         if not self.__history_exists(path) or self.__is_history_empty(path):
             with open(path, 'a+') as file:
                 history_objects = []
@@ -53,7 +53,7 @@ class WeatherClient:
 
 
     def get_history(self) -> list:
-        path = self.directory + "logfile.json"
+        path = self.history_directory + "history.json"
         if self.__history_exists(path):
             with open(path, 'r') as file:
                 return json.load(file)
@@ -64,7 +64,7 @@ class WeatherClient:
         
         
     def clear_history(self) -> None:
-        path = self.directory + "logfile.json"
+        path = self.history_directory + "history.json"
         with open(path, 'w') as file:
             pass
 

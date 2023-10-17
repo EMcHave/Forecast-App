@@ -5,11 +5,11 @@ import requests
 from weather_dataclass import CurrentWeather
 
 def main():
-    print(GREETING_LINE + INFO_LINE + INVITING_LINE)
+    print(GREETING_LINE + INFO_LINE)
     client = WeatherClient()
 
     while True:
-        user_input = input()
+        user_input = input(INVITING_LINE)
         match user_input:
             case "Показать историю":
                 history = client.get_history()
@@ -55,7 +55,6 @@ def print_response(client : WeatherClient, user_input : str):
         report_for_user = generate_report(response)
         print(report_for_user)
         client.log_to_history(response)
-        print(INVITING_LINE)
 
 def generate_report(weather_info : CurrentWeather) -> str:
     report = f"Текущее время: {weather_info.time}\n" \
