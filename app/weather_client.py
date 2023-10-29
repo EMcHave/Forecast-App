@@ -1,96 +1,106 @@
 import os
 import requests
-import json
+import geocoder
 from http import HTTPStatus
 from datetime import datetime, timedelta, timezone
 from custom_exceptions import *
-from weather_dataclass import CurrentWeather
+from weather_dataclass import Weather
+from storage import Storage
+
+
+status_to_error = {
+    HTTPStatus.NOT_FOUND : InvalidInputError,
+    HTTPStatus.BAD_REQUEST : EmptyInputError,
+    HTTPStatus.UNAUTHORIZED : APIRequestError,
+    HTTPStatus.FORBIDDEN : APIRequestError
+}
+
 
 class WeatherClient:
-    API_key : str = "7bd479633f081dc9d67691e3afa0fa36"
-    API_adress : str = "http://api.openweathermap.org/data/2.5/weather"
-    history_directory : str = os.path.dirname(os.path.dirname(__file__)) + '\\logfiles\\'
+    api_key : str = "7bd479633f081dc9d67691e3afa0fa36"
+    api_adress : str = "http://api.openweathermap.org/data/2.5/weather"
+    history_file : str = 'history.json'
+    storage : Storage = Storage(
+        os.path.join(
+            os.path.dirname(os.path.dirname(__file__)), 'logfiles'
+            )
+        )
 
-    def get_weather(self, place : str) -> CurrentWeather:
-        if place == 'Мое местоположение':
+
+    def get_weather(self, place : str) -> Weather:
+        '''
+        Основной метод клиента.
+        На вход получает -me или имя населенного пункта.
+        В случае удачного запроса возврвщает экземпляр датакласса Weather с информацией о погоде в 
+        запрошенном населенном пункте.
+        В случае неудачного запроса райзит ошибки в зависимости от причины неудачи.
+        '''
+        if place == '-me':
             try:
-                my_location = self.__get_location()
+                place = WeatherClient.__get_location()
             except:
-                raise LocationException
-            else:
-                request_json = self.__make_geolocation_weather_request(my_location)
-        else:
-            request_json = self.__make_city_weather_request(place)
-
+                raise LocationError          
+        
+        request_json = self.__make_city_weather_request(place)
         request_status = int(request_json['cod'])
 
-        match request_status:
-            case HTTPStatus.NOT_FOUND:
-                raise InvalidInputException
-            case HTTPStatus.BAD_REQUEST:
-                raise EmptyInputException
-            case HTTPStatus.UNAUTHORIZED | HTTPStatus.FORBIDDEN:
-                raise APIRequestException
-            case HTTPStatus.OK:
-                return self.__generate_weather_report(request_json)
-            case _:
-                raise Exception
-
-
-    def log_to_history(self, report : CurrentWeather) -> None:
-        path = self.history_directory + "history.json"
-        if not self.__history_exists(path) or self.__is_history_empty(path):
-            with open(path, 'a+') as file:
-                history_objects = []
-                history_objects.append(report.to_JSON())
-                json.dump(history_objects, file, indent=3)
+        if request_status in status_to_error:
+            raise status_to_error[request_status]
+        elif request_status == HTTPStatus.OK:
+            return WeatherClient.__generate_weather_report(request_json)
         else:
-            with open(path, 'r+') as file:
-                history_objects = json.load(file)
-                history_objects.append(report.to_JSON())
-                file.seek(0)
-                json.dump(history_objects, file, indent=3)
+            raise Exception
 
 
-    def get_history(self) -> list:
-        path = self.history_directory + "history.json"
-        if self.__history_exists(path):
-            with open(path, 'r') as file:
-                return json.load(file)
-        else:
-            with open(path, 'a') as file:
-                file.write('')
-            return "Истории пока нет"
-        
-        
+    def log_to_history(self, report : Weather) -> None:
+        '''Записывает в JSON-файл данные о погоде, представленные экземпляром датакласса'''
+        self.storage.log_to_json(self.history_file, report.to_dict())      
+
+
+    def get_history(self) -> list[dict]:
+        '''Возвращает список со словарями данных о погоде'''
+        return self.storage.read_from_json(self.history_file)
+
+
     def clear_history(self) -> None:
-        path = self.history_directory + "history.json"
-        with open(path, 'w') as file:
-            pass
+        '''Метод очищает файл с историей'''
+        self.storage.clear_file(self.history_file)
+
 
     def __make_city_weather_request(self, place : str) -> dict:
-        weather_request = requests.get(self.API_adress, 
-                        params={'q': place, 'units': 'metric', 'lang': 'ru', 'APPID': self.API_key})
+        '''
+        Метод совершает запрос к сервису Openweather по имени населенного пункта
+        Возвращается JSON-файл с результатами запроса
+        '''
+        weather_request = requests.get(
+            self.api_adress, 
+            params = {'q': place, 'units': 'metric', 'lang': 'ru', 'APPID': self.api_key}
+            )
         return weather_request.json()
     
-    def __make_geolocation_weather_request(self, place : tuple) -> dict:
-        weather_request = requests.get(self.API_adress, 
-                        params={'lat': place[0], 'lon': place[1], 'units': 'metric', 'lang': 'ru', 'APPID': self.API_key})
-        return weather_request.json()
+
+    @staticmethod
+    def __get_location() -> str:
+        '''
+        Метод возвращает имя вашего населенного пункта по IP
+        '''
+        me = geocoder.ip('me')
+        city = me.city
+        return city
     
-    def __get_location(self) -> tuple:
-        response = requests.get('http://ipinfo.io/json').json()
-        location = response['loc'].split(',')
-        latitude = float(location[0])
-        longitude = float(location[1])
-        return (latitude, longitude)
-    
-    def __generate_weather_report(self, weather_request_json : dict) -> CurrentWeather:
-        timezone = int(weather_request_json['timezone'])
-        date_and_time = self.__calculate_time(timezone)
-        datetime_to_string = date_and_time.strftime("%Y-%d-%m %H:%M:%S %Z")
-        weather_data = CurrentWeather(
-            time = datetime_to_string,
+
+    @staticmethod
+    def __generate_weather_report(weather_request_json : dict) -> Weather:
+        '''
+        Метод выделяет из JSON-файла с погодой основую информацию и возвращает экземпляр датакласса Weather с этой информацией
+        Отдельно обрабатывается часовой пояс, потому что JSON содержит сдвиг от UTC в секундах и его надо привести к типу timezone
+        '''
+        seconds_shift_from_UTC = int(weather_request_json['timezone'])
+        tmzn = timezone(timedelta(seconds=seconds_shift_from_UTC))
+        date_and_time = datetime.now(tz = tmzn)
+
+        weather_data = Weather(
+            time = date_and_time.strftime("%Y-%d-%m %H:%M:%S %Z"),
             place = weather_request_json['name'],
             weather = weather_request_json['weather'][0]['description'],
             real_temperature = int(weather_request_json['main']['temp']),
@@ -98,14 +108,3 @@ class WeatherClient:
             wind_speed = weather_request_json['wind']['speed']
         )
         return weather_data
-
-    def __calculate_time(self, seconds_shift_from_UTC : int) -> datetime:
-        tmzn = timezone(timedelta(seconds=seconds_shift_from_UTC))
-        return datetime.now(tz = tmzn)
-
-    def __history_exists(self, path: str) -> bool:
-        return os.path.isfile(path)
-    
-    def __is_history_empty(self, path: str) -> bool:
-        return os.path.getsize(path) == 0
-    
