@@ -4,6 +4,7 @@ import geocoder
 from http import HTTPStatus
 from datetime import datetime, timedelta, timezone
 from custom_exceptions import *
+from weather_clients_const import *
 from weather_dataclass import Weather
 from storage import Storage
 
@@ -17,9 +18,9 @@ STATUS_TO_ERROR = {
 
 
 class WeatherClient:
-    api_key : str = "7bd479633f081dc9d67691e3afa0fa36"
-    api_adress : str = "http://api.openweathermap.org/data/2.5/weather"
-    history_file : str = 'history.json'
+    api_key : str = API_KEY
+    api_adress : str = API_ADRESS
+    history_file : str = HISTORY_FILE_NAME
     storage : Storage = Storage(
         os.path.join(
             os.path.dirname(os.path.dirname(__file__)), 'logfiles'
