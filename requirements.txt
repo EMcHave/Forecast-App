@@ -1,1 +1,3 @@
 requests==2.31.0
+StrEnum==0.4.15
+geocoder==1.38.1
