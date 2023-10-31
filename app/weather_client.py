@@ -8,7 +8,7 @@ from weather_dataclass import Weather
 from storage import Storage
 
 
-status_to_error = {
+STATUS_TO_ERROR = {
     HTTPStatus.NOT_FOUND : InvalidInputError,
     HTTPStatus.BAD_REQUEST : EmptyInputError,
     HTTPStatus.UNAUTHORIZED : APIRequestError,
@@ -44,8 +44,8 @@ class WeatherClient:
         request_json = self.__make_city_weather_request(place)
         request_status = int(request_json['cod'])
 
-        if request_status in status_to_error:
-            raise status_to_error[request_status]
+        if request_status in STATUS_TO_ERROR:
+            raise STATUS_TO_ERROR[request_status]
         elif request_status == HTTPStatus.OK:
             return WeatherClient.__generate_weather_report(request_json)
         else:
