@@ -64,20 +64,26 @@ def prepare_history(client : WeatherClient) -> str:
     '''
     try:
         history_list = client.get_history()
-        number_of_history_items = input(NUMBER_OF_HISTORY_LINE).strip()
-        number = min(int(number_of_history_items), len(history_list))
+        number_of_history_items = int(input(NUMBER_OF_HISTORY_LINE).strip())
     except Exception:
-        print(UNABLE_TO_GET_HISTORY_LINE)
+        return UNABLE_TO_GET_HISTORY_LINE
 
-    history_str = ''
-    for data in history_list[number::-1]:
-        weather = Weather(**data)
-        history_str += str(weather) + '\n'
-    
-    if len(history_str) == 0:
-        return EMPTY_HISTORY_LINE
+    if number_of_history_items == 0:
+        return ''
+    elif number_of_history_items < 0:
+        return UNABLE_TO_GET_HISTORY_LINE
     else:
-        return history_str
+        history_str = ''
+        number = min(int(number_of_history_items), len(history_list))
+        
+        for data in history_list[:-number-1:-1]:
+            weather = Weather(**data)
+            history_str += str(weather) + '\n'
+        
+        if len(history_str) == 0:
+            return EMPTY_HISTORY_LINE
+        else:
+            return history_str
 
 
 if __name__ == "__main__":
